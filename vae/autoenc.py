@@ -43,13 +43,10 @@ class AutoencoderKL(pl.LightningModule):
         dec = self.decode(z)
         return (dec, mean, log_var)
 
-    def _loss(self, batch):
-        (x, y) = batch
-        while isinstance(x, list) or isinstance(x, tuple):
-            x = x[0][0]
+    def _loss(self, x):
         (y_pred, mean, log_var) = self.forward(x)
 
-        rec_loss = (y - y_pred).abs().mean()
+        rec_loss = (x - y_pred).abs().mean()
         kl_loss = kl_from_standard_normal(mean, log_var)
 
         total_loss = rec_loss + self.kl_weight * kl_loss
@@ -57,7 +54,8 @@ class AutoencoderKL(pl.LightningModule):
         return (total_loss, rec_loss, kl_loss)
 
     def training_step(self, batch, batch_idx):
-        loss = self._loss(batch)[0]
+        assert isinstance(batch, list)
+        loss = self._loss(batch[0])[0]
         self.log("train_loss", loss)
         return loss
 
@@ -82,14 +80,15 @@ class AutoencoderKL(pl.LightningModule):
         reduce_lr = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, patience=3, factor=0.25, verbose=True
         )
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": reduce_lr,
-                "monitor": "val_rec_loss",
-                "frequency": 1,
-            },
-        }
+        return {"optimizer": optimizer}
+        # return {
+        #     "optimizer": optimizer,
+        #     "lr_scheduler": {
+        #         "scheduler": reduce_lr,
+        #         "monitor": "val_rec_loss",
+        #         "frequency": 1,
+        #     },
+        # }
 
 
 if __name__ == "__main__":
