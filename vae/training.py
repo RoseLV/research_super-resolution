@@ -27,9 +27,9 @@ def setup_autoenc_training(encoder, decoder, model_dir):
         accelerator=accelerator,
         devices=devices,
         max_epochs=1000,
-        log_every_n_steps=1,
+        log_every_n_steps=5,
         strategy="dp" if num_gpus > 1 else "auto",
-        callbacks=[],
+        callbacks=callbacks,
     )
 
     return (autoencoder, trainer)

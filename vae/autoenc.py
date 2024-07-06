@@ -1,6 +1,7 @@
 import lightning as pl
 import torch
 from torch import nn
+from torchvision.utils import make_grid
 
 from vae.distributions import kl_from_standard_normal, sample_from_standard_normal
 
@@ -43,7 +44,8 @@ class AutoencoderKL(pl.LightningModule):
         dec = self.decode(z)
         return (dec, mean, log_var)
 
-    def _loss(self, x):
+    def _loss(self, batch):
+        x = batch[0]
         (y_pred, mean, log_var) = self.forward(x)
 
         rec_loss = (x - y_pred).abs().mean()
@@ -54,10 +56,11 @@ class AutoencoderKL(pl.LightningModule):
         return (total_loss, rec_loss, kl_loss)
 
     def training_step(self, batch, batch_idx):
-        assert isinstance(batch, list)
-        loss = self._loss(batch[0])[0]
-        self.log("train_loss", loss)
-        return loss
+        (total_loss, rec_loss, kl_loss) = self._loss(batch)
+        self.log("train_total_loss", total_loss)
+        self.log("train_rec_loss", rec_loss)
+        self.log("train_kl_loss", kl_loss)
+        return total_loss
 
     @torch.no_grad()
     def val_test_step(self, batch, batch_idx, split="val"):
@@ -66,6 +69,11 @@ class AutoencoderKL(pl.LightningModule):
         self.log(f"{split}_loss", total_loss, **log_params)
         self.log(f"{split}_rec_loss", rec_loss.mean(), **log_params)
         self.log(f"{split}_kl_loss", kl_loss, **log_params)
+
+        rec, _, _ = self.forward(batch[0])
+        self.logger.experiment.add_image(
+            "reconstruction", make_grid(rec[:4, ...] * 0.5 + 0.5), self.global_step
+        )
 
     def validation_step(self, batch, batch_idx):
         self.val_test_step(batch, batch_idx, split="val")
@@ -80,15 +88,14 @@ class AutoencoderKL(pl.LightningModule):
         reduce_lr = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, patience=3, factor=0.25, verbose=True
         )
-        return {"optimizer": optimizer}
-        # return {
-        #     "optimizer": optimizer,
-        #     "lr_scheduler": {
-        #         "scheduler": reduce_lr,
-        #         "monitor": "val_rec_loss",
-        #         "frequency": 1,
-        #     },
-        # }
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": reduce_lr,
+                "monitor": "val_rec_loss",
+                "frequency": 1,
+            },
+        }
 
 
 if __name__ == "__main__":
