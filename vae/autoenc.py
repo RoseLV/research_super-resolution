@@ -44,8 +44,7 @@ class AutoencoderKL(pl.LightningModule):
         dec = self.decode(z)
         return (dec, mean, log_var)
 
-    def _loss(self, batch):
-        x = batch[0]
+    def _loss(self, x):
         (y_pred, mean, log_var) = self.forward(x)
 
         rec_loss = (x - y_pred).abs().mean()
@@ -70,9 +69,9 @@ class AutoencoderKL(pl.LightningModule):
         self.log(f"{split}_rec_loss", rec_loss.mean(), **log_params)
         self.log(f"{split}_kl_loss", kl_loss, **log_params)
 
-        rec, _, _ = self.forward(batch[0])
+        rec, _, _ = self.forward(batch)
         self.logger.experiment.add_image(
-            "reconstruction", make_grid(rec[:4, ...] * 0.5 + 0.5), self.global_step
+            "reconstruction", make_grid(rec[:4, ...]), self.global_step
         )
 
     def validation_step(self, batch, batch_idx):
@@ -83,7 +82,7 @@ class AutoencoderKL(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
-            self.parameters(), lr=1e-3, betas=(0.5, 0.9), weight_decay=1e-3
+            self.parameters(), lr=1e-4, betas=(0.5, 0.9), weight_decay=1e-3
         )
         reduce_lr = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, patience=3, factor=0.25, verbose=True
