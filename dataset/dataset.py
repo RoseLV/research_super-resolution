@@ -15,7 +15,7 @@ class PPTDataset(Dataset):
         imgs = np.concatenate(imglist, axis=0)
         imgs = rearrange(imgs, "n h w -> n 1 h w")
         self.imgs = (torch.tensor(imgs) / 255.0).clip(min=0.0, max=1.0)
-
+        self.imgs = self.imgs[:, :, 50:50+128, 150:150+128]
         self.transform = transform
 
     def __len__(self):

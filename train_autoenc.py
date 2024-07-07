@@ -21,17 +21,8 @@ def train(
     model_dir: str = "./model",
 ):
     print("Loading data...")
-    transform = transforms.Compose(
-        [
-            transforms.RandomCrop((128, 128)),
-        ]
-    )
-    train_data = PPTDataset(
-        root_dir=data_dir, start_yr=1986, end_yr=2019, transform=transform
-    )
-    val_data = PPTDataset(
-        root_dir=data_dir, start_yr=2020, end_yr=2022, transform=transform
-    )
+    train_data = PPTDataset(root_dir=data_dir, start_yr=1986, end_yr=2019)
+    val_data = PPTDataset(root_dir=data_dir, start_yr=2020, end_yr=2022)
     train_loader = DataLoader(
         train_data, batch_size=batch_size, shuffle=True, num_workers=16
     )
