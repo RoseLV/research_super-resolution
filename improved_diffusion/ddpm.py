@@ -102,7 +102,7 @@ class DDPM(L.LightningModule):
         if self.trainer.is_last_batch:
             sch = self.lr_schedulers()
             sch.step()
-            self.log("lr", sch.get_last_lr())
+            self.log("lr", sch.get_last_lr()[0])
 
         for rate, params in zip(self.ema_rate, self.ema_params):
             update_ema(params, self.model_params, rate=rate)
