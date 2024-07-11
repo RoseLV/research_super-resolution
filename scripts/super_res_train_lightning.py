@@ -3,9 +3,11 @@ Train a super-resolution model.
 """
 
 import argparse
+from pathlib import Path
 
 import lightning as L
 import torch
+from lightning.pytorch import loggers as pl_loggers
 from torch.utils.data import DataLoader
 
 from improved_diffusion.ddpm import DDPM
@@ -29,6 +31,11 @@ def main():
     model.to("cuda")
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion)
 
+    tb_logger = pl_loggers.TensorBoardLogger(save_dir="logs", version=args.version)
+    model_dir = Path(tb_logger.log_dir) / "checkpoints"
+
+    tb_logger.log_hyperparams(args)
+
     ddpm = DDPM(
         model,
         diffusion,
@@ -36,12 +43,16 @@ def main():
         args.ema_rate,
         schedule_sampler,
         args.weight_decay,
-        args.model_dir,
+        str(model_dir),
     )
 
     print("creating data loader...")
-    train_ds = PPTSRDataset(args.data_dir, 1986, 2019)
-    val_ds = PPTSRDataset(args.data_dir, 2020, 2020)
+    train_ds = PPTSRDataset(
+        args.data_dir, 1986, 2019, args.large_size, args.small_size, args.norm
+    )
+    val_ds = PPTSRDataset(
+        args.data_dir, 2020, 2020, args.large_size, args.small_size, args.norm
+    )
 
     train_loader = DataLoader(
         train_ds, batch_size=args.batch_size, num_workers=16, shuffle=True
@@ -51,7 +62,7 @@ def main():
     )
 
     checkpoint = L.pytorch.callbacks.ModelCheckpoint(
-        dirpath=args.model_dir,
+        dirpath=model_dir,
         filename="{epoch}-{val_loss:.4f}",
         monitor="val_loss",
         every_n_epochs=args.save_interval,
@@ -66,6 +77,7 @@ def main():
         log_every_n_steps=args.log_interval,
         strategy="auto",
         callbacks=callbacks,
+        logger=tb_logger,
     )
 
     print("begin training")
@@ -76,7 +88,6 @@ def create_argparser():
     defaults = dict(
         data_dir="",
         schedule_sampler="uniform",
-        model_dir="checkpoints",
         lr=1e-4,
         weight_decay=0.0,
         lr_anneal_steps=0,
@@ -84,6 +95,8 @@ def create_argparser():
         ema_rate="0.9999",
         log_interval=1,
         save_interval=10,
+        version="iDDPM",
+        norm="gamma",
     )
     defaults.update(sr_model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()

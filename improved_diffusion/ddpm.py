@@ -62,7 +62,7 @@ class DDPM(L.LightningModule):
 
     def log_loss_dict(self, diffusion, ts, losses, stage: str):
         for key, values in losses.items():
-            self.log(f"{stage}_{key}", values.mean().item())
+            self.log(f"{stage}_{key}", values.mean().item(), prog_bar=True)
             # Log the quantiles (four quartiles, in particular).
             for sub_t, sub_loss in zip(ts.cpu().numpy(), values.detach().cpu().numpy()):
                 quartile = int(4 * sub_t / diffusion.num_timesteps)
