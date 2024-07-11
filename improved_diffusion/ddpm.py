@@ -5,8 +5,6 @@ import lightning as L
 import numpy as np
 import torch
 
-from improved_diffusion.train_util import get_blob_logdir, log_loss_dict
-
 from .nn import update_ema
 from .resample import LossAwareSampler, UniformSampler
 
@@ -25,6 +23,7 @@ class DDPM(L.LightningModule):
         ema_rate,
         schedule_sampler=None,
         weight_decay=0.0,
+        model_dir="checkpoints",
     ):
         super(DDPM, self).__init__()
         self.model = model
@@ -43,7 +42,7 @@ class DDPM(L.LightningModule):
         self.ema_params = [
             copy.deepcopy(self.model_params) for _ in range(len(self.ema_rate))
         ]
-
+        self.model_dir = model_dir
         self.automatic_optimization = False
 
     def configure_optimizers(self):
@@ -61,15 +60,15 @@ class DDPM(L.LightningModule):
             "lr_scheduler": step_lr,
         }
 
-    def log_loss_dict(self, diffusion, ts, losses):
+    def log_loss_dict(self, diffusion, ts, losses, stage: str):
         for key, values in losses.items():
-            self.log(key, values.mean().item())
+            self.log(f"{stage}_{key}", values.mean().item())
             # Log the quantiles (four quartiles, in particular).
             for sub_t, sub_loss in zip(ts.cpu().numpy(), values.detach().cpu().numpy()):
                 quartile = int(4 * sub_t / diffusion.num_timesteps)
-                self.log(f"{key}_q{quartile}", sub_loss)
+                self.log(f"{stage}_{key}_q{quartile}", sub_loss)
 
-    def shared_step(self, batch, batch_idx):
+    def shared_step(self, batch, batch_idx, stage: str):
         hr, lr = batch["hr"], batch["lr"]
         t, weights = self.schedule_sampler.sample(hr.shape[0], "cuda")
 
@@ -80,14 +79,15 @@ class DDPM(L.LightningModule):
         if isinstance(self.schedule_sampler, LossAwareSampler):
             self.schedule_sampler.update_with_all_losses(t, losses["loss"].detach())
         loss = (losses["loss"] * weights).mean()
-        log_loss_dict(self.diffusion, t, {k: v * weights for k, v in losses.items()})
+        self.log_loss_dict(
+            self.diffusion, t, {k: v * weights for k, v in losses.items()}, stage
+        )
         return loss
 
     def training_step(self, batch, batch_idx):
-        loss = self.shared_step(batch, batch_idx)
+        loss = self.shared_step(batch, batch_idx, "train")
 
         opt = self.optimizers()
-        sch = self.lr_schedulers()
 
         opt.zero_grad()
         self.manual_backward(loss)
@@ -98,20 +98,24 @@ class DDPM(L.LightningModule):
         self.log("grad_norm", np.sqrt(sqsum))
 
         opt.step()
-        sch.step()
+
+        if self.trainer.is_last_batch:
+            sch = self.lr_schedulers()
+            sch.step()
+            self.log("lr", sch.get_last_lr())
 
         for rate, params in zip(self.ema_rate, self.ema_params):
             update_ema(params, self.model_params, rate=rate)
 
     @torch.no_grad()
     def validation_step(self, batch, batch_idx):
-        return self.shared_step(batch, batch_idx)
+        return self.shared_step(batch, batch_idx, "val")
 
     def on_save_checkpoint(self, checkpoint):
         self.save()
 
     def get_blob_logdir(self):
-        return "TODO"
+        return self.model_dir
 
     def save(self):
         def save_checkpoint(rate, params):
@@ -120,15 +124,23 @@ class DDPM(L.LightningModule):
                 filename = f"model{(self.global_step):06d}.pt"
             else:
                 filename = f"ema_{rate}_{(self.global_step):06d}.pt"
-            with bf.BlobFile(bf.join(get_blob_logdir(), filename), "wb") as f:
+            with bf.BlobFile(bf.join(self.get_blob_logdir(), filename), "wb") as f:
                 torch.save(state_dict, f)
 
-        save_checkpoint(0, self.master_params)
+        save_checkpoint(0, self.model_params)
         for rate, params in zip(self.ema_rate, self.ema_params):
             save_checkpoint(rate, params)
 
         with bf.BlobFile(
-            bf.join(get_blob_logdir(), f"opt{(self.global_step):06d}.pt"),
+            bf.join(self.get_blob_logdir(), f"opt{(self.global_step):06d}.pt"),
             "wb",
         ) as f:
-            torch.save(self.opt.state_dict(), f)
+            opt = self.optimizers()
+            torch.save(opt.state_dict(), f)
+
+    def _master_params_to_state_dict(self, model_params):
+        state_dict = self.model.state_dict()
+        for i, (name, _value) in enumerate(self.model.named_parameters()):
+            assert name in state_dict
+            state_dict[name] = model_params[i]
+        return state_dict

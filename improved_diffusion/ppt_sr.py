@@ -17,7 +17,7 @@ class PPTSRDataset(Dataset):
         imgs = np.concatenate(imglist, axis=0)
         imgs = rearrange(imgs, "n h w -> n 1 h w")
         imgs = tf.crop(torch.tensor(imgs), 80, 260, 64, 64)
-        self.imgs = (imgs / 255.0).clip(min=0.0, max=1.0)
+        self.imgs = (imgs / 255.0).clip(min=0.0, max=1.0) ** 0.15
 
     def __len__(self):
         return self.imgs.size()[0]

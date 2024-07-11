@@ -30,7 +30,13 @@ def main():
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion)
 
     ddpm = DDPM(
-        model, diffusion, args.lr, args.ema_rate, schedule_sampler, args.weight_decay
+        model,
+        diffusion,
+        args.lr,
+        args.ema_rate,
+        schedule_sampler,
+        args.weight_decay,
+        args.model_dir,
     )
 
     print("creating data loader...")
@@ -53,9 +59,9 @@ def main():
     )
     callbacks = [checkpoint]
 
-    print("creting trainer...")
+    print("creating trainer...")
     trainer = L.Trainer(
-        accelerator='gpu',
+        accelerator="gpu",
         max_epochs=1000,
         log_every_n_steps=args.log_interval,
         strategy="auto",
@@ -86,4 +92,5 @@ def create_argparser():
 
 
 if __name__ == "__main__":
+    torch.set_float32_matmul_precision("high")
     main()
