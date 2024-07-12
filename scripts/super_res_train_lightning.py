@@ -48,10 +48,10 @@ def main():
 
     print("creating data loader...")
     train_ds = PPTSRDataset(
-        args.data_dir, 1986, 2019, args.large_size, args.small_size, args.norm
+        args.data_dir, 1986, 2018, args.large_size, args.small_size, args.norm
     )
     val_ds = PPTSRDataset(
-        args.data_dir, 2020, 2020, args.large_size, args.small_size, args.norm
+        args.data_dir, 2019, 2020, args.large_size, args.small_size, args.norm
     )
 
     train_loader = DataLoader(

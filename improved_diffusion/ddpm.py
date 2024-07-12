@@ -53,11 +53,12 @@ class DDPM(L.LightningModule):
             weight_decay=self.weight_decay,
         )
         step_lr = torch.optim.lr_scheduler.MultiStepLR(
-            optimizer, milestones=[300, 500], gamma=0.1
+            optimizer, milestones=[150, 300], gamma=0.1
         )
+        cos_lr = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=50, T_mult=2, eta_min=1e-6)
         return {
             "optimizer": optimizer,
-            "lr_scheduler": step_lr,
+            "lr_scheduler": cos_lr,
         }
 
     def log_loss_dict(self, diffusion, ts, losses, stage: str):
@@ -130,13 +131,6 @@ class DDPM(L.LightningModule):
         save_checkpoint(0, self.model_params)
         for rate, params in zip(self.ema_rate, self.ema_params):
             save_checkpoint(rate, params)
-
-        with bf.BlobFile(
-            bf.join(self.get_blob_logdir(), f"opt{(self.global_step):06d}.pt"),
-            "wb",
-        ) as f:
-            opt = self.optimizers()
-            torch.save(opt.state_dict(), f)
 
     def _master_params_to_state_dict(self, model_params):
         state_dict = self.model.state_dict()
