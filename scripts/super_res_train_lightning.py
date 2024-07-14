@@ -11,6 +11,7 @@ from lightning.pytorch import loggers as pl_loggers
 from torch.utils.data import DataLoader
 
 from improved_diffusion.ddpm import DDPM
+from improved_diffusion.mlde_sr import MLDEDataset
 from improved_diffusion.ppt_sr import PPTSRDataset
 from improved_diffusion.resample import create_named_schedule_sampler
 from improved_diffusion.script_util import (
@@ -25,8 +26,17 @@ def main():
     args = create_argparser().parse_args()
 
     print("creating model...")
+    if args.dataset == "prism":
+        in_channels, cond_channels = 1, 1
+    elif args.dataset == "mlde":
+        in_channels, cond_channels = 1, 13
+    else:
+        raise Exception(f"Unsupported dataset {args.data_dir}")
+
     model, diffusion = sr_create_model_and_diffusion(
-        **args_to_dict(args, sr_model_and_diffusion_defaults().keys())
+        in_channels,
+        cond_channels,
+        **args_to_dict(args, sr_model_and_diffusion_defaults().keys()),
     )
     model.to("cuda")
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion)
@@ -47,12 +57,19 @@ def main():
     )
 
     print("creating data loader...")
-    train_ds = PPTSRDataset(
-        args.data_dir, 1986, 2018, args.large_size, args.small_size, args.norm
-    )
-    val_ds = PPTSRDataset(
-        args.data_dir, 2019, 2020, args.large_size, args.small_size, args.norm
-    )
+    if args.dataset == "prism":
+        train_ds = PPTSRDataset(
+            args.data_dir, 1986, 2018, args.large_size, args.small_size, args.norm
+        )
+        val_ds = PPTSRDataset(
+            args.data_dir, 2019, 2020, args.large_size, args.small_size, args.norm
+        )
+    elif args.dataset == "mlde":
+        assert args.large_size == 64
+        train_ds = MLDEDataset(Path(args.data_dir) / "train.nc", norm=args.norm)
+        val_ds = MLDEDataset(Path(args.data_dir) / "val.nc", norm=args.norm)
+    else:
+        raise Exception(f"Unsupported dataset {args.data_dir}")
 
     train_loader = DataLoader(
         train_ds, batch_size=args.batch_size, num_workers=16, shuffle=True
@@ -87,6 +104,7 @@ def main():
 def create_argparser():
     defaults = dict(
         data_dir="",
+        dataset="prism",  # prism, mlde
         schedule_sampler="uniform",
         lr=1e-4,
         weight_decay=0.0,

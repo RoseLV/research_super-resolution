@@ -137,6 +137,8 @@ def sr_model_and_diffusion_defaults():
 
 
 def sr_create_model_and_diffusion(
+    in_channels,
+    cond_channels,
     large_size,
     small_size,
     class_cond,
@@ -170,6 +172,8 @@ def sr_create_model_and_diffusion(
         num_heads_upsample=num_heads_upsample,
         use_scale_shift_norm=use_scale_shift_norm,
         dropout=dropout,
+        in_channels=in_channels,
+        cond_channels=cond_channels,
     )
     diffusion = create_gaussian_diffusion(
         steps=diffusion_steps,
@@ -197,6 +201,8 @@ def sr_create_model(
     num_heads_upsample,
     use_scale_shift_norm,
     dropout,
+    in_channels=1,
+    cond_channels=1,
 ):
     _ = small_size  # hack to prevent unused variable
 
@@ -214,7 +220,8 @@ def sr_create_model(
         attention_ds.append(large_size // int(res))
 
     return SuperResModel(
-        in_channels=1,
+        in_channels=in_channels,
+        cond_channels=cond_channels,
         model_channels=num_channels,
         out_channels=(1 if not learn_sigma else 2),
         num_res_blocks=num_res_blocks,

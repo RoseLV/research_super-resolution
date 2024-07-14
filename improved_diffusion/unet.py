@@ -1,6 +1,5 @@
-from abc import abstractmethod
-
 import math
+from abc import abstractmethod
 
 import numpy as np
 import torch as th
@@ -10,13 +9,13 @@ import torch.nn.functional as F
 from .fp16_util import convert_module_to_f16, convert_module_to_f32
 from .nn import (
     SiLU,
+    avg_pool_nd,
+    checkpoint,
     conv_nd,
     linear,
-    avg_pool_nd,
-    zero_module,
     normalization,
     timestep_embedding,
-    checkpoint,
+    zero_module,
 )
 
 
@@ -271,7 +270,7 @@ class QKVAttention(nn.Module):
         # We perform two matmuls with the same number of ops.
         # The first computes the weight matrix, the second computes
         # the combination of the value vectors.
-        matmul_ops = 2 * b * (num_spatial ** 2) * c
+        matmul_ops = 2 * b * (num_spatial**2) * c
         model.total_ops += th.DoubleTensor([matmul_ops])
 
 
@@ -530,13 +529,14 @@ class SuperResModel(UNetModel):
     Expects an extra kwarg `low_res` to condition on a low-resolution image.
     """
 
-    def __init__(self, in_channels, *args, **kwargs):
-        super().__init__(in_channels * 2, *args, **kwargs)
+    def __init__(self, in_channels, cond_channels, *args, **kwargs):
+        super().__init__(in_channels + cond_channels, *args, **kwargs)
 
-    def forward(self, x, timesteps, low_res=None, **kwargs):
+    def forward(self, x, timesteps, low_res, **kwargs):
         _, _, new_height, new_width = x.shape
-        upsampled = F.interpolate(low_res, (new_height, new_width), mode="bilinear")
-        x = th.cat([x, upsampled], dim=1)
+        if low_res.shape[-1] != new_width:
+            low_res = F.interpolate(low_res, (new_height, new_width), mode="bilinear")
+        x = th.cat([x, low_res], dim=1)
         return super().forward(x, timesteps, **kwargs)
 
     def get_feature_vectors(self, x, timesteps, low_res=None, **kwargs):
@@ -544,4 +544,3 @@ class SuperResModel(UNetModel):
         upsampled = F.interpolate(low_res, (new_height, new_width), mode="bilinear")
         x = th.cat([x, upsampled], dim=1)
         return super().get_feature_vectors(x, timesteps, **kwargs)
-
