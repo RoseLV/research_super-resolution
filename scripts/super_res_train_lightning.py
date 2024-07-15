@@ -30,6 +30,8 @@ def main():
         in_channels, cond_channels = 1, 1
     elif args.dataset == "mlde":
         in_channels, cond_channels = 1, 13
+    elif args.dataset == "mlde_single":
+        in_channels, cond_channels = 1, 1
     else:
         raise Exception(f"Unsupported dataset {args.data_dir}")
 
@@ -64,10 +66,14 @@ def main():
         val_ds = PPTSRDataset(
             args.data_dir, 2019, 2020, args.large_size, args.small_size, args.norm
         )
-    elif args.dataset == "mlde":
+    elif args.dataset == "mlde_single":
         assert args.large_size == 64
         train_ds = MLDESingleDataset(Path(args.data_dir) / "train.nc", norm=args.norm)
         val_ds = MLDESingleDataset(Path(args.data_dir) / "val.nc", norm=args.norm)
+    elif args.dataset == "mlde":
+        assert args.large_size == 64
+        train_ds = MLDEDataset(Path(args.data_dir) / "train.nc", norm=args.norm)
+        val_ds = MLDEDataset(Path(args.data_dir) / "val.nc", norm=args.norm)
     else:
         raise Exception(f"Unsupported dataset {args.data_dir}")
 
@@ -104,7 +110,7 @@ def main():
 def create_argparser():
     defaults = dict(
         data_dir="",
-        dataset="prism",  # prism, mlde
+        dataset="prism",  # prism, mlde, mlde_sngle
         schedule_sampler="uniform",
         lr=1e-4,
         weight_decay=0.0,
