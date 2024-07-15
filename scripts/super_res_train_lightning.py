@@ -11,7 +11,7 @@ from lightning.pytorch import loggers as pl_loggers
 from torch.utils.data import DataLoader
 
 from improved_diffusion.ddpm import DDPM
-from improved_diffusion.mlde_sr import MLDEDataset
+from improved_diffusion.mlde_sr import MLDEDataset, MLDESingleDataset
 from improved_diffusion.ppt_sr import PPTSRDataset
 from improved_diffusion.resample import create_named_schedule_sampler
 from improved_diffusion.script_util import (
@@ -66,8 +66,8 @@ def main():
         )
     elif args.dataset == "mlde":
         assert args.large_size == 64
-        train_ds = MLDEDataset(Path(args.data_dir) / "train.nc", norm=args.norm)
-        val_ds = MLDEDataset(Path(args.data_dir) / "val.nc", norm=args.norm)
+        train_ds = MLDESingleDataset(Path(args.data_dir) / "train.nc", norm=args.norm)
+        val_ds = MLDESingleDataset(Path(args.data_dir) / "val.nc", norm=args.norm)
     else:
         raise Exception(f"Unsupported dataset {args.data_dir}")
 
