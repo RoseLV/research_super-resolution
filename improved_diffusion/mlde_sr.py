@@ -12,10 +12,14 @@ class MLDEDataset(Dataset):
         hrs = np.array(ds["target_pr"][0, ...], np.float32)
         hrs = hrs / np.float32(np.max(hrs))
         self.hrs = rearrange(hrs, "n h w -> n 1 h w")
+        self.hrs = torch.tensor(self.hrs)
         if norm == "gamma":
             self.hrs = self.hrs**0.15
         else:
             raise Exception(f"Unsupported norm {norm}")
+
+        lrs = F.interpolate(self.hrs, size=(10, 10), mode="bilinear")
+        lrs = F.interpolate(lrs, size=(64, 64), mode="nearest")
 
         conds = []
         for v in list(ds.data_vars):
@@ -30,7 +34,9 @@ class MLDEDataset(Dataset):
         conds = np.concatenate(conds, axis=1)
         tmp = rearrange(conds, "n c h w -> c (n h w)")
         maxes = np.max(tmp, axis=1)
-        self.conds = conds / rearrange(maxes, "c -> 1 c 1 1")
+        conds = conds / rearrange(maxes, "c -> 1 c 1 1")
+
+        self.conds = torch.cat([lrs, torch.tensor(conds)], dim=1)
 
     def __len__(self):
         return self.hrs.shape[0]

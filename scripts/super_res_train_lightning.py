@@ -29,7 +29,7 @@ def main():
     if args.dataset == "prism":
         in_channels, cond_channels = 1, 1
     elif args.dataset == "mlde":
-        in_channels, cond_channels = 1, 13
+        in_channels, cond_channels = 1, 14
     elif args.dataset == "mlde_single":
         in_channels, cond_channels = 1, 1
     else:
