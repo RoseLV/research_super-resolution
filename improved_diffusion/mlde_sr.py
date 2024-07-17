@@ -48,7 +48,7 @@ class MLDEDataset(Dataset):
 
 
 class MLDESingleDataset(Dataset):
-    def __init__(self, nc_file, norm: str):
+    def __init__(self, nc_file, norm: str, large_size: int, small_size: int):
         ds = xr.open_dataset(nc_file, engine="netcdf4")
         hrs = np.array(ds["target_pr"][0, ...], np.float32)
         hrs = hrs / np.float32(np.max(hrs))
@@ -59,8 +59,8 @@ class MLDESingleDataset(Dataset):
         else:
             raise Exception(f"Unsupported norm {norm}")
 
-        lrs = F.interpolate(self.hrs, size=(10, 10), mode="bilinear")
-        self.lrs = F.interpolate(lrs, size=(64, 64), mode="nearest")
+        lrs = F.interpolate(self.hrs, size=(small_size, small_size), mode="bilinear")
+        self.lrs = F.interpolate(lrs, size=(large_size, large_size), mode="nearest")
 
     def __len__(self):
         return self.hrs.shape[0]
