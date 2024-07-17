@@ -43,10 +43,17 @@ def main():
     model.to("cuda")
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion)
 
-    tb_logger = pl_loggers.TensorBoardLogger(save_dir="logs", version=args.version)
-    model_dir = Path(tb_logger.log_dir) / "checkpoints"
+    if args.logger == "tensorboard":
+        logger = pl_loggers.TensorBoardLogger(save_dir="logs", version=args.version)
+        model_dir = Path(logger.log_dir) / "checkpoints"
+    else:
+        logger = pl_loggers.MLFlowLogger(
+            experiment_name=args.version,tracking_uri='http://45.3.96.243:8088' , synchronous=False
+        )
+        model_dir: Path = Path("logs") / args.version / "checkpoints"
+        model_dir.mkdir(parents=True, exist_ok=False)
 
-    tb_logger.log_hyperparams(args)
+    logger.log_hyperparams(args)
 
     ddpm = DDPM(
         model,
@@ -87,9 +94,7 @@ def main():
     checkpoint = L.pytorch.callbacks.ModelCheckpoint(
         dirpath=model_dir,
         filename="{epoch}-{val_loss:.4f}",
-        monitor="val_loss",
         every_n_epochs=args.save_interval,
-        save_top_k=3,
     )
     callbacks = [checkpoint]
 
@@ -100,7 +105,7 @@ def main():
         log_every_n_steps=args.log_interval,
         strategy="auto",
         callbacks=callbacks,
-        logger=tb_logger,
+        logger=logger,
     )
 
     print("begin training")
@@ -121,6 +126,7 @@ def create_argparser():
         save_interval=10,
         version="iDDPM",
         norm="gamma",
+        logger="mlflow",  # mlflow, tensorboard
     )
     defaults.update(sr_model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
