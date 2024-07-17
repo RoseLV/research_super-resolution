@@ -28,6 +28,8 @@ def main():
     print("creating model...")
     if args.dataset == "prism":
         in_channels, cond_channels = 1, 1
+        if len(args.topo_file) > 0:
+            cond_channels += 1
     elif args.dataset == "mlde":
         in_channels, cond_channels = 1, 14
     elif args.dataset == "mlde_single":
@@ -48,7 +50,9 @@ def main():
         model_dir = Path(logger.log_dir) / "checkpoints"
     else:
         logger = pl_loggers.MLFlowLogger(
-            experiment_name=args.version,tracking_uri='http://45.3.96.243:8088' , synchronous=False
+            experiment_name=args.version,
+            tracking_uri="http://45.3.96.243:8088",
+            synchronous=False,
         )
         model_dir: Path = Path("logs") / args.version / "checkpoints"
         model_dir.mkdir(parents=True, exist_ok=False)
@@ -68,15 +72,37 @@ def main():
     print("creating data loader...")
     if args.dataset == "prism":
         train_ds = PPTSRDataset(
-            args.data_dir, 1986, 2018, args.large_size, args.small_size, args.norm
+            args.data_dir,
+            1986,
+            2018,
+            args.large_size,
+            args.small_size,
+            args.norm,
+            args.topo_file,
         )
         val_ds = PPTSRDataset(
-            args.data_dir, 2019, 2020, args.large_size, args.small_size, args.norm
+            args.data_dir,
+            2019,
+            2020,
+            args.large_size,
+            args.small_size,
+            args.norm,
+            args.topo_file,
         )
     elif args.dataset == "mlde_single":
         assert args.large_size == 64
-        train_ds = MLDESingleDataset(Path(args.data_dir) / "train.nc", norm=args.norm)
-        val_ds = MLDESingleDataset(Path(args.data_dir) / "val.nc", norm=args.norm)
+        train_ds = MLDESingleDataset(
+            Path(args.data_dir) / "train.nc",
+            norm=args.norm,
+            large_size=args.large_size,
+            small_size=args.small_size,
+        )
+        val_ds = MLDESingleDataset(
+            Path(args.data_dir) / "val.nc",
+            norm=args.norm,
+            large_size=args.large_size,
+            small_size=args.small_size,
+        )
     elif args.dataset == "mlde":
         assert args.large_size == 64
         train_ds = MLDEDataset(Path(args.data_dir) / "train.nc", norm=args.norm)
@@ -127,6 +153,7 @@ def create_argparser():
         version="iDDPM",
         norm="gamma",
         logger="mlflow",  # mlflow, tensorboard
+        topo_file="",
     )
     defaults.update(sr_model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
