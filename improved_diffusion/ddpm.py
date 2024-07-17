@@ -58,7 +58,7 @@ class DDPM(L.LightningModule):
         cos_lr = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=50, T_mult=2, eta_min=1e-6)
         return {
             "optimizer": optimizer,
-            "lr_scheduler": cos_lr,
+            "lr_scheduler": step_lr,
         }
 
     def log_loss_dict(self, diffusion, ts, losses, stage: str):
