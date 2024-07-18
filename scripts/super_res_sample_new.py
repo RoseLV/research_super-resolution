@@ -46,7 +46,7 @@ def main():
     print("creating data loader...")
     if args.dataset == "prism":
         val_ds = PPTSRDataset(
-            args.data_dir, 2019, 2020, args.large_size, args.small_size, args.norm
+            args.data_dir, 2021, 2021, args.large_size, args.small_size, args.norm
         )
     elif args.dataset == "mlde_single":
         assert args.large_size == 64
@@ -86,7 +86,8 @@ def main():
     hr = np.concatenate(all_hrs, axis=0)
     lr = np.concatenate(all_lrs, axis=0)
     sample = np.concatenate(all_samples, axis=0)
-    np.savez(f"temp_{args.small_size}.npz", hr=hr, lr=lr, sample=sample)
+    path = Path(args.model_path).parent
+    np.savez(f"{path}/sample.npz", hr=hr, lr=lr, sample=sample)
 
 
 def create_argparser():
