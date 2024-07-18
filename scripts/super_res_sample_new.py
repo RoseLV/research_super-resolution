@@ -79,11 +79,12 @@ def main():
         if args.num_samples != -1:
             if i > (args.num_samples // args.batch_size):
                 break
-        model_kwargs = {"low_res": batch["lr"].to("cuda")}
+        lr = batch["lr"]
+        model_kwargs = {"low_res": lr.to("cuda")}
 
         sample = diffusion.p_sample_loop(
             model,
-            (args.batch_size, 1, args.large_size, args.large_size),
+            (lr.size()[0], 1, args.large_size, args.large_size),
             clip_denoised=args.clip_denoised,
             model_kwargs=model_kwargs,
         )
