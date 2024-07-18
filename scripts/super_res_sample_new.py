@@ -46,7 +46,13 @@ def main():
     print("creating data loader...")
     if args.dataset == "prism":
         val_ds = PPTSRDataset(
-            args.data_dir, 2021, 2022, args.large_size, args.small_size, args.norm
+            args.data_dir,
+            2021,
+            2022,
+            args.large_size,
+            args.small_size,
+            args.norm,
+            args.topo_file,
         )
     elif args.dataset == "mlde_single":
         assert args.large_size == 64
@@ -102,6 +108,7 @@ def create_argparser():
         data_dir="",
         model_path="",
         norm="gamma",
+        topo_file="",
     )
     defaults.update(sr_model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
