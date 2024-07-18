@@ -46,7 +46,7 @@ def main():
     print("creating data loader...")
     if args.dataset == "prism":
         val_ds = PPTSRDataset(
-            args.data_dir, 2021, 2021, args.large_size, args.small_size, args.norm
+            args.data_dir, 2021, 2022, args.large_size, args.small_size, args.norm
         )
     elif args.dataset == "mlde_single":
         assert args.large_size == 64
@@ -69,8 +69,10 @@ def main():
     all_samples = []
     all_hrs = []
     all_lrs = []
-    for i in tqdm(range(args.num_samples // args.batch_size)):
-        batch = next(iter(val_loader))
+    for i, batch in enumerate(tqdm(val_loader)):
+        if args.num_samples != -1:
+            if i > (args.num_samples // args.batch_size):
+                break
         model_kwargs = {"low_res": batch["lr"].to("cuda")}
 
         sample = diffusion.p_sample_loop(
