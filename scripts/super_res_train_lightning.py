@@ -79,6 +79,7 @@ def main():
             args.small_size,
             args.norm,
             args.topo_file,
+            args.wavelet,
         )
         val_ds = PPTSRDataset(
             args.data_dir,
@@ -88,6 +89,7 @@ def main():
             args.small_size,
             args.norm,
             args.topo_file,
+            args.wavelet,
         )
     elif args.dataset == "mlde_single":
         assert args.large_size == 64
@@ -154,6 +156,7 @@ def create_argparser():
         norm="gamma",
         logger="mlflow",  # mlflow, tensorboard
         topo_file="",
+        wavelet=False,
     )
     defaults.update(sr_model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()

@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from einops import rearrange
 from torch.utils.data import Dataset
+import pywt
 
 
 class PPTSRDataset(Dataset):
@@ -18,7 +19,10 @@ class PPTSRDataset(Dataset):
         small_size: int,
         norm: str,
         topo_file: str = "",
+        wavelet: bool = False,
     ):
+        self.wavelet = wavelet
+
         imglist = []
         for yr in range(start_yr, end_yr + 1):
             imglist.append(tif.imread(Path(root_dir) / f"PPT_{yr}.tiff"))
@@ -55,5 +59,12 @@ class PPTSRDataset(Dataset):
 
         if self.topo is not None:
             lr = torch.cat([lr, self.topo], dim=0)
+
+        if self.wavelet:
+            LL, (LH, HL, HH) = pywt.dwt2(hr, 'haar')
+            hr = np.concatenate([LL, LH, HL, HH], axis=0)
+
+            LL, (LH, HL, HH) = pywt.dwt2(lr, 'haar')
+            lr = np.concatenate([LL, LH, HL, HH], axis=0)
 
         return {"hr": hr, "lr": lr}

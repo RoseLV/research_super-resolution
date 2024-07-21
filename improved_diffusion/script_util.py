@@ -32,6 +32,7 @@ def model_and_diffusion_defaults():
         rescale_learned_sigmas=True,
         use_checkpoint=False,
         use_scale_shift_norm=True,
+        wavelet=False,
     )
 
 
@@ -158,7 +159,14 @@ def sr_create_model_and_diffusion(
     rescale_learned_sigmas,
     use_checkpoint,
     use_scale_shift_norm,
+    wavelet,
 ):
+    if wavelet:
+        large_size = large_size // 2
+        small_size = small_size // 2
+        in_channels = 4 * in_channels
+        cond_channels = 4 * cond_channels
+
     model = sr_create_model(
         large_size,
         small_size,
@@ -223,7 +231,7 @@ def sr_create_model(
         in_channels=in_channels,
         cond_channels=cond_channels,
         model_channels=num_channels,
-        out_channels=(1 if not learn_sigma else 2),
+        out_channels=(in_channels if not learn_sigma else 2 * in_channels),
         num_res_blocks=num_res_blocks,
         attention_resolutions=tuple(attention_ds),
         dropout=dropout,
