@@ -219,7 +219,8 @@ def sr_create_model(
     elif large_size == 128:
         channel_mult = (1, 1, 2, 2, 4, 4)
     elif large_size == 64:
-        channel_mult = (1, 2, 3, 4)
+        # channel_mult = (1, 2, 3, 4)
+        channel_mult = (1, 1, 2, 2, 4, 4)
     else:
         raise ValueError(f"unsupported large size: {large_size}")
 
