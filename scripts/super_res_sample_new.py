@@ -20,6 +20,19 @@ from improved_diffusion.script_util import (
     sr_model_and_diffusion_defaults,
 )
 
+# def guidance_loss(sample, high_res, scale=1.0):
+#     """Compute the guidance loss as the difference between the sample and high-resolution image."""
+#     return scale * torch.nn.functional.mse_loss(sample, high_res)
+def guidance_loss(sample, high_res, scale=1.0):
+    """
+    Compute the guidance loss as the bias between the sample and high-resolution image.
+    The bias is calculated as the mean difference (sample - high_res).
+    """
+    # Calculate bias as the mean of the difference between sample and high-resolution
+    bias = torch.mean(torch.abs(sample - high_res))
+    
+    # Optionally scale the bias if necessary
+    return scale * bias
 
 def main():
     args = create_argparser().parse_args()
@@ -82,6 +95,8 @@ def main():
             if i > (args.num_samples // args.batch_size):
                 break
         lr = batch["lr"]
+        hr = batch["hr"]  # Extract the high-resolution images from the batch
+        
         model_kwargs = {"low_res": lr.to("cuda")}
 
         sample = diffusion.p_sample_loop(
@@ -89,10 +104,26 @@ def main():
             (lr.size()[0], 1, args.large_size, args.large_size),
             clip_denoised=args.clip_denoised,
             model_kwargs=model_kwargs,
-        )
-        all_samples.append(sample.cpu().numpy())
+        ).requires_grad_(True)  # Enable gradient tracking
+        
+        # 1. Calculate guidance loss
+        loss = guidance_loss(sample, hr.to("cuda"))
+        if i % 10 == 0:
+            print(i, "loss:", loss.item())
+        # 2. Compute gradients for guidance
+        grad = torch.autograd.grad(loss, sample)[0]
+
+        # 3. Apply guidance: adjust the sample based on the gradient
+        # sample = sample - args.guidance_scale * grad
+        sample = sample - 0.1 * grad
+        
+        # Detach the sample from the computation graph before converting to numpy
+        all_samples.append(sample.detach().cpu().numpy())
         all_hrs.append(batch["hr"].cpu().numpy())
         all_lrs.append(batch["lr"].cpu().numpy())
+        # all_samples.append(sample.detach().cpu().numpy())
+        # all_hrs.append(hr.cpu().numpy())
+        # all_lrs.append(lr.cpu().numpy())
 
     hr = np.concatenate(all_hrs, axis=0)
     lr = np.concatenate(all_lrs, axis=0)

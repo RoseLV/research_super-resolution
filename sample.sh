@@ -25,4 +25,4 @@ TRAIN_FLAGS="--lr 3e-4 --model_dir checkpoints --log_interval 5 --save_interval 
 
 SAMPLE_FLAGS="--batch_size 64 --num_samples -1 --timestep_respacing 250 --dataset prism"
 
-python scripts/super_res_sample_new.py --model_path ./logs/checkpoints/prism_128_16_topo/ema_0.9999_113400.pt --data_dir /home/linhan/data/PPT_4km_128/ --topo_file /home/linhan/data/topo_4km_128.tiff $MODEL_FLAGS $DIFFUSION_FLAGS $SAMPLE_FLAGS 
+python scripts/super_res_sample_new.py --model_path ./logs/checkpoints/prism_128_16_topo/ema_0.9999_113400.pt --data_dir /data/share/PPT_4km_128/ --topo_file /data/share/topo_4km_128.tiff $MODEL_FLAGS $DIFFUSION_FLAGS $SAMPLE_FLAGS 
