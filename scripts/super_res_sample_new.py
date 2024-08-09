@@ -27,6 +27,8 @@ def main():
     print("creating model...")
     if args.dataset == "prism":
         in_channels, cond_channels = 1, 1
+        if len(args.topo_file) > 0:
+            cond_channels += 1
     elif args.dataset == "mlde":
         in_channels, cond_channels = 1, 14
     elif args.dataset == "mlde_single":
