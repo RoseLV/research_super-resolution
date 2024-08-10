@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
+import os
 from improved_diffusion.mlde_sr import MLDEDataset, MLDESingleDataset
 from improved_diffusion.ppt_sr import PPTSRDataset
 from improved_diffusion.script_util import (
@@ -113,8 +113,8 @@ def main():
         grad = torch.autograd.grad(loss, sample)[0]
 
         # 3. Apply guidance: adjust the sample based on the gradient
-        # sample = sample - args.guidance_scale * grad
-        sample = sample - 10 * grad
+        sample = sample - args.guidance_scale * grad
+        # sample = sample - 10 * grad
         
         # Detach the sample from the computation graph before converting to numpy
         all_samples.append(sample.detach().cpu().numpy())
@@ -128,7 +128,8 @@ def main():
     lr = np.concatenate(all_lrs, axis=0)
     sample = np.concatenate(all_samples, axis=0)
     path = Path(args.model_path).parent
-    np.savez(f"{path}/sample.npz", hr=hr, lr=lr, sample=sample)
+    # Create directory if it doesn't exist
+    np.savez(f"{path}/sample_{{args.guidance_scale}}.npz", hr=hr, lr=lr, sample=sample)
 
 
 def create_argparser():
@@ -142,6 +143,7 @@ def create_argparser():
         model_path="",
         norm="gamma",
         topo_file="",
+        guidance_scale=0.1,  # Add guidance_scale with a default value
     )
     defaults.update(sr_model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
