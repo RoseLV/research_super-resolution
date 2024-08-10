@@ -21,16 +21,15 @@ from improved_diffusion.script_util import (
 )
 
 # def guidance_loss(sample, high_res, scale=1.0):
-#     """Compute the guidance loss as the difference between the sample and high-resolution image."""
+#     """Compute the guidance loss as the difference between the sample and low-resolution image."""
 #     return scale * torch.nn.functional.mse_loss(sample, high_res)
-def guidance_loss(sample, high_res, scale=1.0):
+def guidance_loss(sample, low_res, scale=1.0):
     """
     Compute the guidance loss as the bias between the sample and high-resolution image.
-    The bias is calculated as the mean difference (sample - high_res).
+    The bias is calculated as the mean difference (sample - low_res).
     """
     # Calculate bias as the mean of the difference between sample and high-resolution
-    bias = torch.mean(torch.abs(sample - high_res))
-    
+    bias = torch.mean(sample - low_res)
     # Optionally scale the bias if necessary
     return scale * bias
 
@@ -95,7 +94,7 @@ def main():
             if i > (args.num_samples // args.batch_size):
                 break
         lr = batch["lr"]
-        hr = batch["hr"]  # Extract the high-resolution images from the batch
+        # hr = batch["hr"]  # Extract the high-resolution images from the batch
         
         model_kwargs = {"low_res": lr.to("cuda")}
 
@@ -107,7 +106,7 @@ def main():
         ).requires_grad_(True)  # Enable gradient tracking
         
         # 1. Calculate guidance loss
-        loss = guidance_loss(sample, hr.to("cuda"))
+        loss = guidance_loss(sample, lr.to("cuda"))
         if i % 10 == 0:
             print(i, "loss:", loss.item())
         # 2. Compute gradients for guidance
@@ -115,7 +114,7 @@ def main():
 
         # 3. Apply guidance: adjust the sample based on the gradient
         # sample = sample - args.guidance_scale * grad
-        sample = sample - 0.1 * grad
+        sample = sample - 10 * grad
         
         # Detach the sample from the computation graph before converting to numpy
         all_samples.append(sample.detach().cpu().numpy())
