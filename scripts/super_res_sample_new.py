@@ -23,20 +23,34 @@ from improved_diffusion.script_util import (
 # def guidance_loss(sample, high_res, scale=1.0):
 #     """Compute the guidance loss as the difference between the sample and low-resolution image."""
 #     return scale * torch.nn.functional.mse_loss(sample, high_res)
-def guidance_loss(sample, low_res, scale=1.0):
+# def guidance_loss(sample, low_res, scale=1.0):
+#     """
+#     Compute the guidance loss as the bias between the sample and high-resolution image.
+#     The bias is calculated as the mean difference (sample - low_res).
+#     """
+#     # Calculate bias as the mean of the difference between sample and high-resolution
+#     bias = torch.mean(sample - low_res)
+#     # Optionally scale the bias if necessary
+#     return scale * bias
+
+
+def guidance_loss(sample, low_res, scale=1.0, alpha=0.5):
     """
-    Compute the guidance loss as the bias between the sample and high-resolution image.
-    The bias is calculated as the mean difference (sample - low_res).
+    Combine a form of RMSE (relative to low_res) and bias into a single guidance loss.
     """
-    # Calculate bias as the mean of the difference between sample and high-resolution
+    # Compute a pseudo-RMSE loss between sample and low_res (not true RMSE but relative)
+    pseudo_rmse_loss = torch.sqrt(torch.mean((sample - low_res) ** 2))
+    # Compute the bias between sample and low_res
     bias = torch.mean(sample - low_res)
-    # Optionally scale the bias if necessary
-    return scale * bias
+    # Combine the pseudo-RMSE and bias into a single loss
+    combined_loss = alpha * pseudo_rmse_loss + (1 - alpha) * torch.abs(bias)
+    return scale * combined_loss
+
 
 def main():
     args = create_argparser().parse_args()
 
-    print("creating model...")
+    print("creating model...", args)
     if args.dataset == "prism":
         in_channels, cond_channels = 1, 1
         if len(args.topo_file) > 0:
@@ -106,7 +120,7 @@ def main():
         ).requires_grad_(True)  # Enable gradient tracking
         
         # 1. Calculate guidance loss
-        loss = guidance_loss(sample, lr.to("cuda"))
+        loss = guidance_loss(sample, lr.to("cuda"), scale=args.scale, alpha=args.alpha)
         if i % 10 == 0:
             print(i, "loss:", loss.item())
         # 2. Compute gradients for guidance
@@ -114,22 +128,18 @@ def main():
 
         # 3. Apply guidance: adjust the sample based on the gradient
         sample = sample - args.guidance_scale * grad
-        # sample = sample - 10 * grad
         
         # Detach the sample from the computation graph before converting to numpy
         all_samples.append(sample.detach().cpu().numpy())
         all_hrs.append(batch["hr"].cpu().numpy())
         all_lrs.append(batch["lr"].cpu().numpy())
-        # all_samples.append(sample.detach().cpu().numpy())
-        # all_hrs.append(hr.cpu().numpy())
-        # all_lrs.append(lr.cpu().numpy())
 
     hr = np.concatenate(all_hrs, axis=0)
     lr = np.concatenate(all_lrs, axis=0)
     sample = np.concatenate(all_samples, axis=0)
     path = Path(args.model_path).parent
     # Create directory if it doesn't exist
-    np.savez(f"{path}/sample_{{args.guidance_scale}}.npz", hr=hr, lr=lr, sample=sample)
+    np.savez(f"{path}/sample_{args.scale}_{args.alpha}.npz", hr=hr, lr=lr, sample=sample)
 
 
 def create_argparser():
@@ -144,6 +154,8 @@ def create_argparser():
         norm="gamma",
         topo_file="",
         guidance_scale=0.1,  # Add guidance_scale with a default value
+        scale=1.0,
+        alpha=0.5,
     )
     defaults.update(sr_model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
