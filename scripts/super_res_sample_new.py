@@ -19,33 +19,28 @@ from improved_diffusion.script_util import (
     sr_create_model_and_diffusion,
     sr_model_and_diffusion_defaults,
 )
+import torch.nn.functional as F
 
 # def guidance_loss(sample, high_res, scale=1.0):
 #     """Compute the guidance loss as the difference between the sample and low-resolution image."""
 #     return scale * torch.nn.functional.mse_loss(sample, high_res)
-# def guidance_loss(sample, low_res, scale=1.0):
-#     """
-#     Compute the guidance loss as the bias between the sample and high-resolution image.
-#     The bias is calculated as the mean difference (sample - low_res).
-#     """
-#     # Calculate bias as the mean of the difference between sample and high-resolution
-#     bias = torch.mean(sample - low_res)
-#     # Optionally scale the bias if necessary
-#     return scale * bias
-
 
 def guidance_loss(sample, low_res, scale=1.0, alpha=0.5):
-    """
-    Combine a form of RMSE (relative to low_res) and bias into a single guidance loss.
-    """
-    # Compute a pseudo-RMSE loss between sample and low_res (not true RMSE but relative)
-    pseudo_rmse_loss = torch.sqrt(torch.mean((sample - low_res) ** 2))
-    # Compute the bias between sample and low_res
-    bias = torch.mean(sample - low_res)
-    # Combine the pseudo-RMSE and bias into a single loss
-    combined_loss = alpha * pseudo_rmse_loss + (1 - alpha) * torch.abs(bias)
-    return scale * combined_loss
+    """Interpolate and optimize loss by minimizing bias and RMSE between lrs and low_res."""
+    # Interpolate sample to create a low-resolution prediction
+    lrs = F.interpolate(sample, size=(16, 16), mode="bilinear")
+    lrs = F.interpolate(lrs, size=(128, 128), mode="nearest")
 
+    # Compute the pseudo-RMSE loss between lrs and low_res
+    pseudo_rmse_loss = torch.sqrt(torch.mean((lrs - low_res) ** 2))
+    
+    # Compute the bias (mean difference) between lrs (low-res prediction) and low_res (ground truth low-res)
+    lrs_bias = torch.mean(lrs - low_res)
+    
+    # Combine the pseudo-RMSE and bias into a single loss function
+    combined_loss = alpha * pseudo_rmse_loss + (1 - alpha) * torch.abs(lrs_bias)
+    
+    return scale * combined_loss
 
 def main():
     args = create_argparser().parse_args()
@@ -121,8 +116,15 @@ def main():
         
         # 1. Calculate guidance loss
         loss = guidance_loss(sample, lr.to("cuda"), scale=args.scale, alpha=args.alpha)
-        if i % 10 == 0:
-            print(i, "loss:", loss.item())
+        # if i % 10 == 0:
+        #     print(i, "loss:", loss.item())
+        #     # Optionally, log RMSE and bias separately if helpful for debugging
+        #     lrs = F.interpolate(sample, size=(16, 16), mode="bilinear")
+        #     lrs = F.interpolate(lrs, size=(128, 128), mode="nearest")
+        #     pseudo_rmse_loss = torch.sqrt(torch.mean((lrs - lr.to("cuda")) ** 2)).item()
+        #     lrs_bias = torch.mean(lrs - lr.to("cuda")).item()
+        #     print(f"RMSE Loss: {pseudo_rmse_loss}, Bias: {lrs_bias}")
+            
         # 2. Compute gradients for guidance
         grad = torch.autograd.grad(loss, sample)[0]
 
@@ -139,7 +141,8 @@ def main():
     sample = np.concatenate(all_samples, axis=0)
     path = Path(args.model_path).parent
     # Create directory if it doesn't exist
-    np.savez(f"{path}/sample_{args.scale}_{args.alpha}.npz", hr=hr, lr=lr, sample=sample)
+    print(f"Saving samples to {path}/sample_{args.guidance_scale}_{args.scale}_{args.alpha}.npz")
+    np.savez(f"{path}/sample_{args.guidance_scale}_{args.scale}_{args.alpha}.npz", hr=hr, lr=lr, sample=sample)
 
 
 def create_argparser():
