@@ -144,3 +144,7 @@ MODEL_FLAGS="--image_size 32 --num_channels 128 --num_res_blocks 3 --learn_sigma
 DIFFUSION_FLAGS="--diffusion_steps 4000 --noise_schedule cosine --use_kl True"
 TRAIN_FLAGS="--lr 1e-4 --batch_size 128 --schedule_sampler loss-second-moment"
 ```
+=======
+# precipitation-diffusion-downscaling
+
+
